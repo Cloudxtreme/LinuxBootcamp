@@ -1,0 +1,100 @@
+#!/bin/bash
+
+game_over ()
+{
+    ## Call the modules cleanup function
+    cleanup
+    sleep 5
+    clear
+    exit
+}
+populate_dir ()
+{
+    mkdir -p "$1"
+    for i in {1..50}; do
+        echo "$(head -c 1000 /dev/urandom)" > "$1/somefile$i" 
+    done
+}
+function validate ()
+{
+    ## $1 is the command string that should be answered, it will loop until entered properly
+    ## $2 is the description of the command to be displayed before the loop
+
+    while [ 1 ]; do
+        echo -e "$2\n"
+        read -p "$" CMD
+        
+        ## Allow exiting
+        if [ "$CMD" == "exit" ]; then
+            echo "Going AWOL and quitting."
+            cleanup
+            exit
+        fi
+        
+        ## Allow man pages
+        if [[ $CMD == man* ]]; then
+            echo "$CMD" | /bin/bash
+            continue
+        fi
+        
+        ## Command validation
+        if [[ $CMD == $1* ]]; then
+            echo "$CMD" | /bin/bash
+            gain_health
+            break
+        else
+            echo -e "ERROR. That is not correct soldier! Try again"
+            lose_health
+        fi
+        echo ""
+    done
+}
+
+lose_health ()
+{
+    SOLDIER_CUR_HEALTH=$((SOLDIER_CUR_HEALTH-HEALTH_PENALTY))
+    echo -e "\n[-] Health Remaining: $SOLDIER_CUR_HEALTH\n"
+    if [ $SOLDIER_CUR_HEALTH -lt 0 ] || [ $SOLDIER_CUR_HEALTH -eq 0 ]; then
+        echo -e "\n\nAGGGGGGGGHHHHH\n\n"
+        echo "Game over: You have been terminated."
+        game_over
+    fi
+}
+
+gain_health ()
+{
+    SOLDIER_CUR_HEALTH=$((SOLDIER_CUR_HEALTH+HEALTH_REWARD))
+    echo -e "\n[+] Great work soldier! Here's a small boost [+$HEALTH_REWARD]\n"
+}
+
+
+function exec_loop ()
+{
+    echo -e "\n\nLoading...Something seems different...Don't worry about breaking anything..."
+    echo -e "{DEBUG} | $(date) | Entering loop..."
+    while [ 1 ]; do
+        read -p '$' CMD
+        if [ "$CMD" == "exit" ]; then
+            cleanup
+            exit
+        fi
+        $CMD
+    done
+}
+
+function fixed_exec_loop ()
+{
+    while [ 1 ]; do
+        read -p '$' CMD
+        if [ "$CMD" == "exit" ]; then
+            cleanup
+            exit
+        else
+            if [ "$CMD" == 'break' ]; then
+                echo "Nice try..."
+            fi
+        fi
+        echo "$CMD" | /bin/bash
+    done
+}
+
