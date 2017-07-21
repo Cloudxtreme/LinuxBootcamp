@@ -143,7 +143,8 @@ class Module (object):
                 whitelist_matched = False
                 for exp in self.cmd_whitelist:
                     r = re.compile(exp)
-                    if len(r.findall(program_input)) > 0:
+                    matches = r.findall(program_input)
+                    if len(matches) > 0:
                         whitelist_matched = True
                         break
                 if not whitelist_matched:
@@ -154,7 +155,8 @@ class Module (object):
                 blacklist_matched = False
                 for exp in self.cmd_blacklist:
                     r = re.compile(exp) 
-                    if len(r.findall(program_input)) > 0:
+                    matches = r.findall(program_input)
+                    if len(matches) > 0:
                         blacklist_matched = True
                         break
                 if blacklist_matched:

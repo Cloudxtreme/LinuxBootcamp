@@ -20,7 +20,9 @@ def main():
         '/usr/bin/grep',
         '/bin/mkdir',
         '/bin/chmod'
-        ])
+        ],
+        ['blacklist'],
+        ['.*'])
     m.input_loop(m.parser_func)
 
 if __name__ == '__main__':
