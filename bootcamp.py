@@ -20,9 +20,13 @@ def main():
         '/usr/bin/grep',
         '/bin/mkdir',
         '/bin/chmod',
+        '/usr/bin/id'
         ],
         ['blacklist'],
-        ['.*'])
+        ['.*'],
+        10,
+        0,
+        0)
     m.input_loop(m.parser_func)
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ from shlex import split as shlexSplit
 from shutil import copyfile, copytree
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=[], blacklist=[], whitelist=[], timeout=5):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=[], blacklist=[], whitelist=[], timeout=10, uid=None, gid=None):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
@@ -29,6 +29,8 @@ class Module (object):
         self.cmd_whitelist = whitelist
         self.cmd_blacklist = blacklist
         self.timeout = timeout
+        self.uid = uid
+        self.gid = gid
 
         self.real_root = os.open("/", os.O_RDONLY)
 
@@ -49,6 +51,33 @@ class Module (object):
 
         # Initialize a virtual environment for the module
         self.initialize()
+    
+    """
+    This function can be used by subprocess to execute commands as a given uid and gid.
+    """
+    def _assume_id(self):
+        
+        uid = os.getuid()
+        gid = os.getgid()
+
+        if self.gid is not None:
+            gid = self.gid
+        if self.uid is not None:
+            uid = self.uid
+
+        def set_ids():
+            # Configure UID and GID
+            print(os.geteuid())
+            print(os.getegid())
+            try:
+                # TODO: Figure out why this doesn't work. My euid and guid are 0.
+                os.setregid(gid, gid)
+                os.setreuid(uid, uid)
+            except Exception as e:
+                print(e)
+
+        return set_ids
+
 
     """
     Initialize the environment for this module.
@@ -95,11 +124,8 @@ class Module (object):
 
         # Copy module files
         mod_fileroot = 'files/'+self.title
-        print("DEBUG> file_root: "+mod_fileroot)
         if os.path.exists(mod_fileroot):
-            print("DEBUG>Found module file_root")
             for f in os.listdir(mod_fileroot):
-                print("DEBUG>Copying file {} to {}".format(f, self.root_dir+'/'+os.path.basename(f)))
                 copytree(mod_fileroot+'/'+f, self.root_dir+'/'+os.path.basename(f))
 
         # Chroot into the virtual environment (This requires root access)
@@ -205,8 +231,10 @@ class Module (object):
         
         # Execute Command
         cmd = " ".join(shlexSplit(program_input))
-        print("DEBUG> Executing {}".format(cmd))
-        program_output = subprocess.check_output(cmd, shell=True, env=self.env, timeout=self.timeout)
+        program_output = subprocess.check_output(cmd,
+            shell=True, env=self.env,
+            timeout=self.timeout,
+            preexec_fn=self._assume_id())
         self.history.append(program_input)
         return program_output
         
@@ -230,10 +258,6 @@ class Module (object):
     Input received is sent to the given parser_func parameter.
     """
     def input_loop(self, parser_func):
-        print("DEBUG> Starting input loop. Here's some info")
-        print(os.environ)
-        print([f for f in os.listdir('.') if os.path.isfile(f)])
-
         while True:
             try:
                 # Retrieve Input
@@ -249,5 +273,4 @@ class Module (object):
                     program_output = parser_func(program_input)
 
             except Exception as e:
-                print(e)
                 print("Error: Could not execute command")
