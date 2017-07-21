@@ -13,7 +13,7 @@ from shlex import split as shlexSplit
 from shutil import copyfile, copytree
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[], files=[]):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[]):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
@@ -23,7 +23,6 @@ class Module (object):
         self.allowed_commands = allowed_commands
         self.binaries = binaries
         self.real_root = os.open("/", os.O_RDONLY)
-        self.files = files
 
         # Environment
         #self.env = os.environ.copy()
@@ -86,13 +85,6 @@ class Module (object):
             os.chmod(new_bin, 0555)
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
-        # Copy files
-        for f in self.files:
-            new_file = os.path.abspath(self.root_dir + '/' + f)
-            if not os.path.exists(os.path.dirname(new_file)):
-                os.makedirs(os.path.dirname(new_file))
-            copyfile(f, new_file)
-        
         # Copy module files
         mod_fileroot = 'modules/'+self.title+'/file_root/'
         print("DEBUG> file_root: "+mod_fileroot)
