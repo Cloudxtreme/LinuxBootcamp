@@ -6,7 +6,7 @@ import subprocess
 
 def main():
     m = Module(
-        'Sample Module',
+        'Sample_Module',
         'Bootcamp(Sample Module) > ',
         'Welcome to the Linux Bootcamp.\nInitializing your environment...',
         'flag1',

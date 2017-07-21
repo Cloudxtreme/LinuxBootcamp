@@ -3,7 +3,6 @@ This is the top level object that modules will inherit from.
 """
 import hashlib
 import os
-import process_isolation
 import random
 import shutil
 import subprocess
@@ -14,7 +13,7 @@ from shlex import split as shlexSplit
 from shutil import copyfile, copytree
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[]):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[], files=[]):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
@@ -24,6 +23,7 @@ class Module (object):
         self.allowed_commands = allowed_commands
         self.binaries = binaries
         self.real_root = os.open("/", os.O_RDONLY)
+        self.files = files
 
         # Environment
         #self.env = os.environ.copy()
@@ -86,12 +86,21 @@ class Module (object):
             os.chmod(new_bin, 0555)
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
-        # Generate a context used for execution of commands in virtual env
-        self.context = process_isolation.default_context()
-        self.context.ensure_started()
-
-        # Put the context in a chroot
-        self.context.client.call(os.chroot, self.root_dir)
+        # Copy files
+        for f in self.files:
+            new_file = os.path.abspath(self.root_dir + '/' + f)
+            if not os.path.exists(os.path.dirname(new_file)):
+                os.makedirs(os.path.dirname(new_file))
+            copyfile(f, new_file)
+        
+        # Copy module files
+        mod_fileroot = 'modules/'+self.title+'/file_root/'
+        print("DEBUG> file_root: "+mod_fileroot)
+        if os.path.exists(mod_fileroot):
+            print("DEBUG>Found module file_root")
+            for f in os.listdir(mod_fileroot):
+                print("DEBUG>Copying file {} to {}".format(f, self.root_dir+'/'+os.path.basename(f)))
+                copytree(mod_fileroot+'/'+f, self.root_dir+'/'+os.path.basename(f))
 
         # Chroot into the virtual environment (This requires root access)
         os.chdir(self.root_dir)
