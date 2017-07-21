@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 
 from shlex import split as shlexSplit
@@ -194,12 +195,31 @@ class Module (object):
             return self.env['PWD']
         
         # Execute Command
-        cmd = " ".join(shlexSplit(program_input))
-        print("DEBUG> Executing {}".format(cmd))
-        program_output = subprocess.check_output(cmd, shell=True, env=self.env)
-        self.history.append(program_input)
-        return program_output
+        def exec_with_timeout(program_input, proc_output):
+            cmd = " ".join(shlexSplit(program_input))
+            print("DEBUG> Executing {}".format(cmd))
+            program_output = subprocess.check_output(cmd, shell=True, env=self.env)
+            self.history.append(program_input)
+            proc_output = [program_output]
 
+        proc_output = []
+        #exec_proc = multiprocessing.Process(target=exec_with_timeout, args=(program_input,proc_output))
+        #exec_proc.start()
+        exec_thread = threading.Thread(target=exec_with_timeout, args=(program_input, proc_output))
+        exec_thread.start()
+
+        #exec_proc.join(timeout=self.timeout)
+        exec_thread.join(timeout=self.timeout)
+        
+        if exec_thread.is_alive():
+            print("bootcamp: command timed out: {}".format(program_input))
+            exec_thread._Thread_stop()
+        
+        if len(proc_output) > 0:
+            return proc_output[0]
+        
+        return ''
+        
     """
     This is the default parser_func that is called by input_loop with program_input.
     By default, it look's for the exit command, if found it calls self.exit. Else,
