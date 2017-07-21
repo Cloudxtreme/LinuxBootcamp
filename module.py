@@ -105,6 +105,7 @@ class Module (object):
         # Chroot into the virtual environment (This requires root access)
         os.chdir(self.root_dir)
         os.chroot(self.root_dir)
+        os.chdir(self.env['HOME'])
 
         # Setup Environment Variables
         self.env['SHELL'] = '/bin/sh'
@@ -133,8 +134,8 @@ class Module (object):
     """
     def validate_input(self, program_input):
         if program_input is not None and program_input != "":
-            # Specifically allow cd, exit, and pwd
-            if program_input == 'cd' or program_input == 'exit' or program_input == 'pwd':
+            # Specifically allow cd, exit, clear, and pwd
+            if program_input == 'cd' or program_input == 'exit' or program_input == 'clear' or program_input == 'pwd':
                 return True
             
             # Check whitelist
@@ -198,6 +199,9 @@ class Module (object):
             return ''
         elif program_input == 'pwd':
             return self.env['PWD']
+        elif program_input == 'clear':
+            sys.stderr.write("\x1b[2J\x1b[H")
+            return ''
         
         # Execute Command
         cmd = " ".join(shlexSplit(program_input))

@@ -19,7 +19,7 @@ def main():
         '/usr/bin/env',
         '/usr/bin/grep',
         '/bin/mkdir',
-        '/bin/chmod'
+        '/bin/chmod',
         ],
         ['blacklist'],
         ['.*'])
