@@ -81,6 +81,9 @@ class Module (object):
     or the `start` method (If you want to also include this functionality).
     """
     def initialize(self):
+        # Clear the screen
+        sys.stderr.write("\x1b[2J\x1b[H")
+        
         # Print the banner
         print(self.banner)
 

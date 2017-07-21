@@ -8,6 +8,13 @@ and then including your module in this package's __init__.py
 
 from .module import Module
 
+"""
+This function must be present in all module files, 
+and must return an instance of the module class.
+"""
+def create():
+    return Sample_Module()
+
 """"
 This class needs to inherit from Module, and will gain all of that functionality.
 """
@@ -29,6 +36,7 @@ class Sample_Module(Module):
             All commands are whitelisted, and anything containing "blacklist" will be blacklisted.
             You will have access to basic commands. Feel free to roam around.
             To complete the module, echo the flag (i.e. `echo flag1`).
+
             Initializing your environment...
             """,
 
