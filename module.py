@@ -51,15 +51,25 @@ class Module (object):
         if '/bin/sh' not in self.binaries:
             self.binaries.append('/bin/sh')
 
+        # Copy bash
+        if '/bin/bash' not in self.binaries:
+            self.binaries.append('/bin/bash')
+
         # Create /usr/lib
         if not os.path.exists(self.root_dir+'/usr/lib'):
             os.makedirs(self.root_dir+'/usr/lib')
+
+        # Copy files in /usr/lib
+        for f in os.listdir('/usr/lib'):
+            newpath = os.path.abspath(self.root_dir+'/usr/lib/'+f)
+            os.system('cp -rf /usr/lib/'+f+' '+newpath)
 
         # Copy binaries (and hard link dependancies) into environment
         for binary in self.binaries:
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
             os.chmod(new_bin, 0555)
+            #copy_dependencies(self.root_dir, binary)
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
         # Generate a context used for execution of commands in virtual env
@@ -78,8 +88,8 @@ class Module (object):
 
 
         # Chroot into the virtual environment (This requires root access)
-        #os.chdir(self.root_dir)
-        #os.chroot(self.root_dir)
+        os.chdir(self.root_dir)
+        os.chroot(self.root_dir)
 
         # Set the new PATH
         #os.environ["PATH"] = "/bin"
@@ -123,14 +133,18 @@ class Module (object):
     """
     Execute a command within the virtual environment.
     """
-    def safe_exec(self, cmd):
+    def safe_exec(self, program_input):
+        cmd = shlexSplit(program_input)
+        program_output = subprocess.check_output(cmd, shell=True)
+        print(program_output)
+        return program_output
+
         #sandbox = self.context.load_module('sandbox', path=['.'])
         #program_output = self.context.client.call(os.system, 'ls -al')
         #program_output = sandbox.sandbox_exec('')
         #program_output = self.context.client.call(subprocess.check_output, cmd, shell=True)
         #program_output = subprocess.check_output(cmd, shell=True)
         #print(program_output)
-        pass
 
     """
     This is the default parser_func that is called by input_loop with program_input.
@@ -141,10 +155,7 @@ class Module (object):
         if program_input == 'exit':
             self.exit()
 
-        print("Executing..."+program_input)
-        cmd = shlexSplit(program_input)
-
-        program_output = self.safe_exec(cmd)
+        program_output = self.safe_exec(program_input)
 
         print(program_output)
 
