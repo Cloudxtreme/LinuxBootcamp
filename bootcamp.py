@@ -16,7 +16,8 @@ def prompt(mods):
         print("\t{}\t{}".format(i, mods[i].title))
     
     mod = int(raw_input("\n\nModule: "))
-    mods[mod].initialize()
+    if mod < len(mods) and mod > 0:
+        mods[mod].initialize()
     mods[mod].start()
 
 def main():
