@@ -7,7 +7,6 @@ import random
 import re
 import shutil
 import sys
-import threading
 import time
 
 if os.name == 'posix' and sys.version_info[0] < 3:
@@ -95,7 +94,7 @@ class Module (object):
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
         # Copy module files
-        mod_fileroot = 'modules/'+self.title+'/file_root/'
+        mod_fileroot = 'files/'+self.title
         print("DEBUG> file_root: "+mod_fileroot)
         if os.path.exists(mod_fileroot):
             print("DEBUG>Found module file_root")
