@@ -18,6 +18,7 @@ class Module (object):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
+        self.history = []
         self.banner = banner
         self.flag = flag
         self.allowed_commands = allowed_commands
@@ -25,7 +26,8 @@ class Module (object):
         self.real_root = os.open("/", os.O_RDONLY)
 
         # Environment
-        self.env = os.environ.copy()
+        #self.env = os.environ.copy()
+        self.env = {}
 
         # Directory Tracking        
         self.env['HOME'] = '/home/root/'
@@ -97,6 +99,7 @@ class Module (object):
 
         # Setup Environment Variables
         self.env['SHELL'] = '/bin/sh'
+        self.env['PATH'] = '/bin'
 
     """
     Cleanup and then sys.exit. This should be overridden if special cleanup is necessary.
@@ -151,25 +154,30 @@ class Module (object):
             args = shlexSplit(program_input)
             if len(args) < 2 or args[1] == '~':
                 self.env['OLDPWD'] = self.env['PWD']
-                self.env['PWD'] = self.env['HOME']
+                os.chdir(self.env['HOME'])
             elif args[1] == '-':
                 tmp = self.env['OLDPWD']
                 self.env['OLDPWD'] = self.env['PWD']
-                self.env['PWD'] = tmp
+                os.chdir(tmp)
             else:
                 self.env['OLDPWD'] = self.env['PWD']
-                self.env['PWD'] = args[1]
+                os.chdir(os.path.abspath(args[1]))
 
-            if self.env['PWD'] == self.env['HOME']:
+            self.env['PWD'] = os.getcwd()
+
+            if self.env['PWD'].strip('/') == self.env['HOME'].strip('/'):
                 self.cur_prompt = '[~] {}'.format(self.prompt)
             else:
-                self.cur_prompt = '[{}] {}'.format(os.path.abspath(self.env['PWD']), self.prompt)
+                self.cur_prompt = '[{}] {}'.format(os.path.abspath(os.getcwd()), self.prompt)
+            return ''
         elif program_input == 'pwd':
-            print(self.env['PWD'])
+            return self.env['PWD']
         
+        # Execute Command
         cmd = " ".join(shlexSplit(program_input))
         print("DEBUG> Executing {}".format(cmd))
         program_output = subprocess.check_output(cmd, shell=True, env=self.env)
+        self.history.append(program_input)
         return program_output
 
     """

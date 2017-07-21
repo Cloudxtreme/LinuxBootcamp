@@ -10,7 +10,7 @@ def main():
         'Bootcamp(Sample Module) > ',
         'Welcome to the Linux Bootcamp.\nInitializing your environment...',
         'flag1',
-        ['ls', 'cat', 'echo', 'exit', 'touch'],
+        ['ls', 'cat', 'echo', 'exit', 'touch', 'while', './'],
         ['/bin/ls',
         '/bin/cat',
         '/bin/echo',
@@ -18,7 +18,9 @@ def main():
         '/usr/bin/whoami',
         '/usr/bin/stat',
         '/usr/bin/env',
-        '/usr/bin/grep'
+        '/usr/bin/grep',
+        '/bin/mkdir',
+        '/bin/chmod'
         ])
     m.input_loop(m.parser_func)
 
