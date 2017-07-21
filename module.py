@@ -1,21 +1,104 @@
 """
 This is the top level object that modules will inherit from.
 """
-import sys
+import hashlib
+import os
+import process_isolation
+import random
+import shutil
 import subprocess
-import shlex
+import sys
+import time
+
+from shlex import split as shlexSplit
+from shutil import copyfile, copytree
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', flag=None, allowed_commands=[]):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[]):
         self.title = title
         self.prompt = prompt
+        self.banner = banner
         self.flag = flag
         self.allowed_commands = allowed_commands
+        self.binaries = binaries
+        self.real_root = os.open("/", os.O_RDONLY)
+
+        self.context = None
+
+        # Generate unique directory path
+        md5_hash = hashlib.md5()
+        md5_hash.update(str(self.title)+str(time.time())+str(random.randint(0, 429496729)))
+        self.root_dir = '/tmp/bootcamp/'+md5_hash.hexdigest()
+
+        # Initialize a virtual environment for the module
+        self.initialize()
+
+    """
+    Initialize the environment for this module.
+    If your module requires additional support, either override this method,
+    or the `start` method (If you want to also include this functionality).
+    """
+    def initialize(self):
+        # Print the banner
+        print(self.banner)
+
+        # Create the virtual env directory
+        venv_dir = self.root_dir+'/bin'
+        if not os.path.exists(venv_dir):
+            os.makedirs(venv_dir)
+
+        # Copy sh
+        if '/bin/sh' not in self.binaries:
+            self.binaries.append('/bin/sh')
+
+        # Create /usr/lib
+        if not os.path.exists(self.root_dir+'/usr/lib'):
+            os.makedirs(self.root_dir+'/usr/lib')
+
+        # Copy binaries (and hard link dependancies) into environment
+        for binary in self.binaries:
+            new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
+            copyfile(binary, new_bin)
+            os.chmod(new_bin, 0555)
+            os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
+
+        # Generate a context used for execution of commands in virtual env
+        self.context = process_isolation.default_context()
+        self.context.ensure_started()
+
+        # Put the context in a chroot
+        self.context.client.call(os.chroot, self.root_dir)
+
+        # Ensure '/' and '/bin' exist
+        #if not os.path.exists(self.root_dir):
+        #    os.mkdir(self.root_dir)
+        #if not os.path.exists(self.root_dir+'/bin'):
+        #    os.mkdir(self.root_dir+'/bin')
+        # 
+
+
+        # Chroot into the virtual environment (This requires root access)
+        #os.chdir(self.root_dir)
+        #os.chroot(self.root_dir)
+
+        # Set the new PATH
+        #os.environ["PATH"] = "/bin"
 
     """
     Cleanup and then sys.exit. This should be overridden if special cleanup is necessary.
     """
     def exit(self):
+        # Exit the chroot environment
+        os.fchdir(self.real_root)
+        os.chroot(".")
+        os.close(self.real_root)
+
+        try:
+            shutil.rmtree(self.root_dir)
+        except Exception as e:
+            # Couldn't cleanup properly, still exit though.
+            pass
+
         sys.exit('Exiting Bootcamp...')
         
     """
@@ -24,7 +107,7 @@ class Module (object):
     def validate_input(self, program_input):
         if program_input is not None and program_input != "":
             cmd = program_input.split(' ')[0]
-            if cmd in self.allowed_commands:
+            if cmd in self.allowed_commands or cmd == 'exit':
                 return True
         return False
 
@@ -37,11 +120,32 @@ class Module (object):
             return self.flag in program_input or self.flag in program_output
         return False
 
+    """
+    Execute a command within the virtual environment.
+    """
+    def safe_exec(self, cmd):
+        #sandbox = self.context.load_module('sandbox', path=['.'])
+        #program_output = self.context.client.call(os.system, 'ls -al')
+        #program_output = sandbox.sandbox_exec('')
+        #program_output = self.context.client.call(subprocess.check_output, cmd, shell=True)
+        #program_output = subprocess.check_output(cmd, shell=True)
+        #print(program_output)
+        pass
+
+    """
+    This is the default parser_func that is called by input_loop with program_input.
+    By default, it look's for the exit command, if found it calls self.exit. Else,
+    it will execute the given command in the virtual environment.
+    """
     def parser_func(self, program_input):
         if program_input == 'exit':
             self.exit()
 
-        program_output = subprocess.check_output(shlex.split(program_input), shell=True)
+        print("Executing..."+program_input)
+        cmd = shlexSplit(program_input)
+
+        program_output = self.safe_exec(cmd)
+
         print(program_output)
 
         return program_output
@@ -51,6 +155,10 @@ class Module (object):
     Input received is sent to the given parser_func parameter.
     """
     def input_loop(self, parser_func):
+        print("DEBUG> Starting input loop. Here's some info")
+        print(os.environ)
+        print([f for f in os.listdir('.') if os.path.isfile(f)])
+        #print(os.getcwd())
         while True:
             try:
                 # Retrieve Input
@@ -65,4 +173,5 @@ class Module (object):
                 if callable(parser_func):
                     program_output = parser_func(program_input)
             except Exception as e:
+                print(e)
                 print("Error: Could not execute command")
