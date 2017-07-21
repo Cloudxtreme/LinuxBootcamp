@@ -4,6 +4,7 @@ This is the top level object that modules will inherit from.
 import hashlib
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -13,15 +14,18 @@ from shlex import split as shlexSplit
 from shutil import copyfile, copytree
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[]):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=[], blacklist=[], whitelist=[], timeout=5):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
         self.history = []
         self.banner = banner
         self.flag = flag
-        self.allowed_commands = allowed_commands
         self.binaries = binaries
+        self.cmd_whitelist = whitelist
+        self.cmd_blacklist = blacklist
+        self.timeout = timeout
+
         self.real_root = os.open("/", os.O_RDONLY)
 
         # Environment
@@ -125,17 +129,32 @@ class Module (object):
     """
     def validate_input(self, program_input):
         if program_input is not None and program_input != "":
-            cmd = shlexSplit(program_input)[0]
-            
-            # Allow specifically allowed command, cd, and exit
-            if cmd in self.allowed_commands or cmd == 'cd' or cmd == 'exit' or cmd == 'pwd':
+            # Specifically allow cd, exit, and pwd
+            if program_input == 'cd' or program_input == 'exit' or program_input == 'pwd':
                 return True
-
-            # Allow access to copied binaries
-            for binary in self.binaries:
-                if cmd in binary:
-                    return True
-        return False
+            
+            # Check whitelist
+            if self.cmd_whitelist is not None and self.cmd_whitelist != []:
+                whitelist_matched = False
+                for exp in self.cmd_whitelist:
+                    r = re.compile(exp)
+                    if len(r.findall(program_input)) > 0:
+                        whitelist_matched = True
+                        break
+                if not whitelist_matched:
+                    return False
+            
+            # Check blacklist
+            if self.cmd_blacklist is not None and self.cmd_blacklist != []:
+                blacklist_matched = False
+                for exp in self.cmd_blacklist:
+                    r = re.compile(exp) 
+                    if len(r.findall(program_input)) > 0:
+                        blacklist_matched = True
+                        break
+                if blacklist_matched:
+                    return False
+        return True
 
     """
     Inheriting modules should override this function with their own logic.

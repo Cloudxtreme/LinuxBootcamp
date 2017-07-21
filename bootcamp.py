@@ -10,7 +10,6 @@ def main():
         'Bootcamp(Sample Module) > ',
         'Welcome to the Linux Bootcamp.\nInitializing your environment...',
         'flag1',
-        ['ls', 'cat', 'echo', 'exit', 'touch', 'while', './'],
         ['/bin/ls',
         '/bin/cat',
         '/bin/echo',
