@@ -9,16 +9,22 @@ reprompted with the module selection list.
 #from modules import Sample_Module
 import modules
 import importlib
+import copy
 
 def prompt(mods):
-    print("Welcome to the bootcamp. Select a module.\n")
+    print("\nWelcome to the bootcamp. Select a module.\n")
     for i in range(0, len(mods)):
         print("\t{}\t{}".format(i, mods[i].title))
     
-    mod = int(raw_input("\n\nModule: "))
-    if mod < len(mods) and mod > 0:
-        mods[mod].initialize()
-    mods[mod].start()
+    try:
+        mod = int(raw_input("\n\nModule: "))
+        if mod < len(mods) and mod >= 0:
+            m = copy.deepcopy(mods[mod])
+            m.initialize()
+            m.start()
+    except Exception as e:
+        print(e)
+        print("Error occured.")
 
 def main():
     mods = []

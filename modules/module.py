@@ -31,7 +31,7 @@ class Module (object):
         self.uid = uid
         self.gid = gid
 
-        self.real_root = os.open("/", os.O_RDONLY)
+        self.real_root = None
 
         # Environment
         #self.env = os.environ.copy()
@@ -43,13 +43,8 @@ class Module (object):
         self.env['OLDPWD'] = '/home/root/'
         self.env['TEMP'] = 'TEMP'
 
-        # Generate unique directory path
-        md5_hash = hashlib.md5()
-        md5_hash.update("{}{}{}".format(self.title, time.time(), random.randint(0, 429496729)).encode('utf-8'))
-        self.root_dir = '/tmp/bootcamp/'+md5_hash.hexdigest()
-
-        # Initialize a virtual environment for the module
-        #self.initialize()
+        # Temporary root, initialize should generate new one.
+        self.root_dir = '/tmp/bootcamp/temp'
 
     """
     This function can be used by subprocess to execute commands as a given uid and gid.
@@ -86,6 +81,14 @@ class Module (object):
         
         # Print the banner
         print(self.banner)
+
+        # Store root directory
+        self.real_root = os.open("/", os.O_RDONLY)
+
+        # Generate unique directory path
+        md5_hash = hashlib.md5()
+        md5_hash.update("{}{}{}".format(self.title, time.time(), random.randint(0, 429496729)).encode('utf-8'))
+        self.root_dir = '/tmp/bootcamp/'+md5_hash.hexdigest()
 
         # Create the virtual env directory
         venv_dir = self.root_dir+'/bin'
@@ -142,13 +145,15 @@ class Module (object):
     """
     def start(self):
         self.input_loop(self.parser_func)
-        print("Congratulations! You've completed {}".format(self.title))
+        self.exit(False)
+        print("Congratulations! You've completed {}\n".format(self.title))
+
 
 
     """
     Cleanup and then sys.exit. This should be overridden if special cleanup is necessary.
     """
-    def exit(self):
+    def exit(self, exit=True):
         print("Cleaning up...")
         # Exit the chroot environment
         os.fchdir(self.real_root)
@@ -160,8 +165,8 @@ class Module (object):
         except Exception as e:
             # Couldn't cleanup properly, still exit though.
             pass
-
-        sys.exit('Exiting Bootcamp...')
+        if exit:
+            sys.exit('Exiting Bootcamp...')
 
     """
     This function is used to determine if we will allow the user input.
