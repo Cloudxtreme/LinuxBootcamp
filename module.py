@@ -17,14 +17,22 @@ class Module (object):
     def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, allowed_commands=[], binaries=[]):
         self.title = title
         self.prompt = prompt
+        self.cur_prompt = '[~] '+prompt
         self.banner = banner
         self.flag = flag
         self.allowed_commands = allowed_commands
         self.binaries = binaries
         self.real_root = os.open("/", os.O_RDONLY)
 
-        self.context = None
+        # Environment
+        self.env = os.environ.copy()
 
+        # Directory Tracking        
+        self.env['HOME'] = '/home/root/'
+        self.env['PWD'] = '/home/root/'
+        self.env['OLDPWD'] = '/home/root/'
+        self.env['TEMP'] = 'TEMP'
+        
         # Generate unique directory path
         md5_hash = hashlib.md5()
         md5_hash.update(str(self.title)+str(time.time())+str(random.randint(0, 429496729)))
@@ -47,6 +55,11 @@ class Module (object):
         if not os.path.exists(venv_dir):
             os.makedirs(venv_dir)
 
+        # Create home directory
+        home = self.root_dir+self.env['HOME']
+        if not os.path.exists(home):
+            os.makedirs(home)
+
         # Copy sh
         if '/bin/sh' not in self.binaries:
             self.binaries.append('/bin/sh')
@@ -64,12 +77,11 @@ class Module (object):
             newpath = os.path.abspath(self.root_dir+'/usr/lib/'+f)
             os.system('cp -rf /usr/lib/'+f+' '+newpath)
 
-        # Copy binaries (and hard link dependancies) into environment
+        # Copy binaries (and copy dependencies) into environment
         for binary in self.binaries:
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
             os.chmod(new_bin, 0555)
-            #copy_dependencies(self.root_dir, binary)
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
         # Generate a context used for execution of commands in virtual env
@@ -79,25 +91,18 @@ class Module (object):
         # Put the context in a chroot
         self.context.client.call(os.chroot, self.root_dir)
 
-        # Ensure '/' and '/bin' exist
-        #if not os.path.exists(self.root_dir):
-        #    os.mkdir(self.root_dir)
-        #if not os.path.exists(self.root_dir+'/bin'):
-        #    os.mkdir(self.root_dir+'/bin')
-        # 
-
-
         # Chroot into the virtual environment (This requires root access)
         os.chdir(self.root_dir)
         os.chroot(self.root_dir)
 
-        # Set the new PATH
-        #os.environ["PATH"] = "/bin"
+        # Setup Environment Variables
+        self.env['SHELL'] = '/bin/sh'
 
     """
     Cleanup and then sys.exit. This should be overridden if special cleanup is necessary.
     """
     def exit(self):
+        print("Cleaning up...")
         # Exit the chroot environment
         os.fchdir(self.real_root)
         os.chroot(".")
@@ -116,9 +121,16 @@ class Module (object):
     """
     def validate_input(self, program_input):
         if program_input is not None and program_input != "":
-            cmd = program_input.split(' ')[0]
-            if cmd in self.allowed_commands or cmd == 'exit':
+            cmd = shlexSplit(program_input)[0]
+            
+            # Allow specifically allowed command, cd, and exit
+            if cmd in self.allowed_commands or cmd == 'cd' or cmd == 'exit' or cmd == 'pwd':
                 return True
+
+            # Allow access to copied binaries
+            for binary in self.binaries:
+                if cmd in binary:
+                    return True
         return False
 
     """
@@ -134,17 +146,31 @@ class Module (object):
     Execute a command within the virtual environment.
     """
     def safe_exec(self, program_input):
-        cmd = shlexSplit(program_input)
-        program_output = subprocess.check_output(cmd, shell=True)
-        print(program_output)
-        return program_output
+        # Simulate working directory
+        if program_input.startswith('cd'):
+            args = shlexSplit(program_input)
+            if len(args) < 2 or args[1] == '~':
+                self.env['OLDPWD'] = self.env['PWD']
+                self.env['PWD'] = self.env['HOME']
+            elif args[1] == '-':
+                tmp = self.env['OLDPWD']
+                self.env['OLDPWD'] = self.env['PWD']
+                self.env['PWD'] = tmp
+            else:
+                self.env['OLDPWD'] = self.env['PWD']
+                self.env['PWD'] = args[1]
 
-        #sandbox = self.context.load_module('sandbox', path=['.'])
-        #program_output = self.context.client.call(os.system, 'ls -al')
-        #program_output = sandbox.sandbox_exec('')
-        #program_output = self.context.client.call(subprocess.check_output, cmd, shell=True)
-        #program_output = subprocess.check_output(cmd, shell=True)
-        #print(program_output)
+            if self.env['PWD'] == self.env['HOME']:
+                self.cur_prompt = '[~] {}'.format(self.prompt)
+            else:
+                self.cur_prompt = '[{}] {}'.format(os.path.abspath(self.env['PWD']), self.prompt)
+        elif program_input == 'pwd':
+            print(self.env['PWD'])
+        
+        cmd = " ".join(shlexSplit(program_input))
+        print("DEBUG> Executing {}".format(cmd))
+        program_output = subprocess.check_output(cmd, shell=True, env=self.env)
+        return program_output
 
     """
     This is the default parser_func that is called by input_loop with program_input.
@@ -169,11 +195,11 @@ class Module (object):
         print("DEBUG> Starting input loop. Here's some info")
         print(os.environ)
         print([f for f in os.listdir('.') if os.path.isfile(f)])
-        #print(os.getcwd())
+
         while True:
             try:
                 # Retrieve Input
-                program_input = raw_input(self.prompt)
+                program_input = raw_input(self.cur_prompt)
 
                 # Validate
                 if not self.validate_input(program_input):
@@ -183,6 +209,7 @@ class Module (object):
                 # Parse and execute
                 if callable(parser_func):
                     program_output = parser_func(program_input)
+
             except Exception as e:
                 print(e)
                 print("Error: Could not execute command")
