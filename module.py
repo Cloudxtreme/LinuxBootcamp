@@ -67,14 +67,11 @@ class Module (object):
 
         def set_ids():
             # Configure UID and GID
-            print(os.geteuid())
-            print(os.getegid())
             try:
-                # TODO: Figure out why this doesn't work. My euid and guid are 0.
                 os.setregid(gid, gid)
                 os.setreuid(uid, uid)
             except Exception as e:
-                print(e)
+                pass
 
         return set_ids
 
