@@ -5,7 +5,6 @@ import hashlib
 import os
 import random
 import re
-import shutil
 import sys
 import time
 
@@ -15,7 +14,7 @@ else:
     import subprocess
 
 from shlex import split as shlexSplit
-from shutil import copyfile, copytree
+from shutil import copyfile, copytree, rmtree
 
 class Module (object):
     def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=[], blacklist=[], whitelist=[], timeout=10, uid=None, gid=None):
@@ -38,25 +37,25 @@ class Module (object):
         #self.env = os.environ.copy()
         self.env = {}
 
-        # Directory Tracking        
+        # Directory Tracking
         self.env['HOME'] = '/home/root/'
         self.env['PWD'] = '/home/root/'
         self.env['OLDPWD'] = '/home/root/'
         self.env['TEMP'] = 'TEMP'
-        
+
         # Generate unique directory path
         md5_hash = hashlib.md5()
-        md5_hash.update(str(self.title)+str(time.time())+str(random.randint(0, 429496729)))
+        md5_hash.update("{}{}{}".format(self.title, time.time(), random.randint(0, 429496729)).encode('utf-8'))
         self.root_dir = '/tmp/bootcamp/'+md5_hash.hexdigest()
 
         # Initialize a virtual environment for the module
-        self.initialize()
-    
+        #self.initialize()
+
     """
     This function can be used by subprocess to execute commands as a given uid and gid.
     """
     def _assume_id(self):
-        
+
         uid = os.getuid()
         gid = os.getgid()
 
@@ -116,7 +115,7 @@ class Module (object):
         for binary in self.binaries:
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
-            os.chmod(new_bin, 0555)
+            os.chmod(new_bin, 555)
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
         # Copy module files
@@ -135,6 +134,15 @@ class Module (object):
         self.env['PATH'] = '/bin'
 
     """
+    This function is called to start the module.
+    You may override this for a more custom experience.
+    """
+    def start(self):
+        self.input_loop(self.parser_func)
+        print("Congratulations! You've completed {}".format(self.title))
+
+
+    """
     Cleanup and then sys.exit. This should be overridden if special cleanup is necessary.
     """
     def exit(self):
@@ -145,13 +153,13 @@ class Module (object):
         os.close(self.real_root)
 
         try:
-            shutil.rmtree(self.root_dir)
+            rmtree(self.root_dir)
         except Exception as e:
             # Couldn't cleanup properly, still exit though.
             pass
 
         sys.exit('Exiting Bootcamp...')
-        
+
     """
     This function is used to determine if we will allow the user input.
     """
@@ -160,7 +168,7 @@ class Module (object):
             # Specifically allow cd, exit, clear, and pwd
             if program_input == 'cd' or program_input == 'exit' or program_input == 'clear' or program_input == 'pwd':
                 return True
-            
+
             # Check whitelist
             if self.cmd_whitelist is not None and self.cmd_whitelist != []:
                 whitelist_matched = False
@@ -172,12 +180,12 @@ class Module (object):
                         break
                 if not whitelist_matched:
                     return False
-            
+
             # Check blacklist
             if self.cmd_blacklist is not None and self.cmd_blacklist != []:
                 blacklist_matched = False
                 for exp in self.cmd_blacklist:
-                    r = re.compile(exp) 
+                    r = re.compile(exp)
                     matches = r.findall(program_input)
                     if len(matches) > 0:
                         blacklist_matched = True
@@ -225,7 +233,7 @@ class Module (object):
         elif program_input == 'clear':
             sys.stderr.write("\x1b[2J\x1b[H")
             return ''
-        
+
         # Execute Command
         cmd = " ".join(shlexSplit(program_input))
         program_output = subprocess.check_output(cmd,
@@ -234,7 +242,7 @@ class Module (object):
             preexec_fn=self._assume_id())
         self.history.append(program_input)
         return program_output
-        
+
     """
     This is the default parser_func that is called by input_loop with program_input.
     By default, it look's for the exit command, if found it calls self.exit. Else,
@@ -268,6 +276,10 @@ class Module (object):
                 # Parse and execute
                 if callable(parser_func):
                     program_output = parser_func(program_input)
+
+                # Check for success
+                if self.is_success(program_input, program_output):
+                    break
 
             except Exception as e:
                 print("Error: Could not execute command")
