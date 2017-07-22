@@ -36,7 +36,7 @@ def main():
             m = importlib.import_module("modules.{}".format(name)).create()
             mods.append(m)
         except Exception as e:
-            pass
+            print(e)
     
     while True:
         prompt(mods)

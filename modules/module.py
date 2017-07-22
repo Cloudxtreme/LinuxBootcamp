@@ -46,6 +46,8 @@ class Module (object):
         # Temporary root, initialize should generate new one.
         self.root_dir = '/tmp/bootcamp/temp'
 
+        self.check_err = "That's not quite right. Please try again.\n"
+
     """
     This function can be used by subprocess to execute commands as a given uid and gid.
     """
@@ -148,7 +150,15 @@ class Module (object):
         self.exit(False)
         print("Congratulations! You've completed {}\n".format(self.title))
 
-
+    """
+    Compares to see if the input matches the given command.
+    If not, it will print the standard error message.
+    """
+    def check(self, cmd, program_input):
+        if cmd == program_input:
+            return True
+        print(self.check_err)
+        return False
 
     """
     Cleanup and then sys.exit. This should be overridden if special cleanup is necessary.
