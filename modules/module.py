@@ -22,7 +22,7 @@ from shlex import split as shlexSplit
 from shutil import copyfile, copytree, rmtree
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=[], blacklist=[], whitelist=[], timeout=10, uid=None, gid=None):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=None, blacklist=None, whitelist=None, timeout=10, uid=None, gid=None):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
