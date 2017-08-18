@@ -115,20 +115,33 @@ class Module (object):
         if '/bin/bash' not in self.binaries:
             self.binaries.append('/bin/bash')
 
+
+
+        # Copy files in /usr/lib(64) check for 64bit
+        if sys.maxsize > 2**32:
+            # Create /usr/lib
+            lib64 = os.path.join(self.root_dir, '/lib64')
+            if not os.path.exists(lib64):
+                os.makedirs(lib64)
+            if not os.path.exists(self.root_dir+'/usr/lib64'):
+                os.makedirs(self.root_dir+'/usr/lib64')
+            for f in os.listdir('/usr/lib64'):
+                newpath = os.path.abspath(self.root_dir+'/usr/lib64/'+f)
+                os.system('cp -rf /usr/lib64/'+f+' '+newpath)            
+
         # Create /usr/lib
         if not os.path.exists(self.root_dir+'/usr/lib'):
             os.makedirs(self.root_dir+'/usr/lib')
-
-        # Copy files in /usr/lib
         for f in os.listdir('/usr/lib'):
             newpath = os.path.abspath(self.root_dir+'/usr/lib/'+f)
             os.system('cp -rf /usr/lib/'+f+' '+newpath)
 
         # Copy binaries (and copy dependencies) into environment
         for binary in self.binaries:
+            print("Copying file/directory {}".format(binary))
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
-            os.chmod(new_bin, 555)
+            os.chmod(new_bin, 0555)
             os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
 
         # Copy module files
@@ -230,6 +243,8 @@ class Module (object):
     Execute a command within the virtual environment.
     """
     def safe_exec(self, program_input):
+        print("Echoing hi")
+        os.system("echo hi")
         # Simulate working directory
         if program_input.startswith('cd'):
             args = shlexSplit(program_input)
@@ -305,4 +320,5 @@ class Module (object):
                     break
 
             except Exception as e:
+                print(e)
                 print("Error: Could not execute command")

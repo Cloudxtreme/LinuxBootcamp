@@ -19,12 +19,13 @@ def prompt(mods):
     print("\nWelcome to the bootcamp. Select a module.\n")
 
     for idx, mod in enumerate(mods):
-        print("\t{}\t{}".format(idx, mod.title))
+        mods[idx] = mods[idx].create()
+        print("\t{}\t{}".format(idx, mods[idx].title))
     
     try:
         mod = int(input("\n\nModule: "))
         if mod < len(mods) and mod >= 0:
-            m = mods[mod].create()
+            m = mods[mod]
             m.initialize()
             m.start()
     except Exception as e:
@@ -35,11 +36,10 @@ def main():
     mods = []
 
     for name in dir(modules):
-        if name.startswith('_'):
-            continue
         try:
             m = getattr(modules, name)
-            mods.append(m)
+            if name != 'module' and isinstance(m, __builtins__.__class__):
+                mods.append(m)
         except Exception as e:
             print(e)
     
