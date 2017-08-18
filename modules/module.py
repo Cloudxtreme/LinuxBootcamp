@@ -122,6 +122,14 @@ class Module (object):
             debug("Making binary directory {}".format(venv_dir))
             os.makedirs(venv_dir)
 
+        # Copy module files into root directory
+        mod_fileroot = os.path.join('files/', self.title)
+        if os.path.exists(mod_fileroot):
+            for f in os.listdir(mod_fileroot):
+                debug("Copying module files")
+                debug("cp -rf {} {}".format(os.path.abspath(os.path.join(mod_fileroot, f)), self.root_dir))
+                os.system("cp -rf {} {}".format(os.path.abspath(os.path.join(mod_fileroot, f)), self.root_dir))
+
         # Create home directory
         home = '{}{}'.format(self.root_dir, self.env['HOME'])
         if not os.path.exists(home):
@@ -207,13 +215,8 @@ class Module (object):
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
             os.chmod(new_bin, 0555)
-            os.system("ldd "+binary+" | egrep '(.dylib|.so)' | awk '{ print $1 }' | xargs -I@ bash -c 'sudo cp @ "+self.root_dir+"@'")
-
-        # Copy module files
-        mod_fileroot = 'files/'+self.title
-        if os.path.exists(mod_fileroot):
-            for f in os.listdir(mod_fileroot):
-                copytree(mod_fileroot+'/'+f, self.root_dir+'/'+os.path.basename(f))
+            debug("ldd {} | egrep '(.dylib|.so)' | awk '{{ print $1 }}' | xargs -I@ bash -c 'sudo cp @ {}@'".format(binary, self.root_dir))
+            os.system("ldd {} | egrep '(.dylib|.so)' | awk '{{ print $1 }}' | xargs -I@ bash -c 'sudo cp @ {}@'".format(binary, self.root_dir))
 
         # Chroot into the virtual environment (This requires root access)
         os.chdir(self.root_dir)
