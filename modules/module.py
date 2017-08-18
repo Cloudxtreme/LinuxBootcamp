@@ -13,6 +13,11 @@ if os.name == 'posix' and sys.version_info[0] < 3:
 else:
     import subprocess
 
+try:
+    input = raw_input
+except NameError:
+    pass
+
 from shlex import split as shlexSplit
 from shutil import copyfile, copytree, rmtree
 
@@ -284,10 +289,6 @@ class Module (object):
         while True:
             try:
                 # Retrieve Input
-                try:
-                    input = raw_input
-                except NameError:
-                    pass
                 program_input = input(self.cur_prompt)
 
                 # Validate
