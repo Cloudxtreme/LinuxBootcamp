@@ -284,7 +284,11 @@ class Module (object):
         while True:
             try:
                 # Retrieve Input
-                program_input = raw_input(self.cur_prompt)
+                try:
+                    input = raw_input
+                except NameError:
+                    pass
+                program_input = input(self.cur_prompt)
 
                 # Validate
                 if not self.validate_input(program_input):

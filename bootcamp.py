@@ -13,11 +13,17 @@ import copy
 
 def prompt(mods):
     print("\nWelcome to the bootcamp. Select a module.\n")
-    for i in range(0, len(mods)):
-        print("\t{}\t{}".format(i, mods[i].title))
+
+    for idx, mod in enumerate(mods):
+        print("\t{}\t{}".format(idx, mod.title))
     
     try:
-        mod = int(raw_input("\n\nModule: "))
+        try:
+            input = raw_input
+        except NameError:
+            pass
+        
+        mod = int(input("\n\nModule: "))
         if mod < len(mods) and mod >= 0:
             m = copy.deepcopy(mods[mod])
             m.initialize()
