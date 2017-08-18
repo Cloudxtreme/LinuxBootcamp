@@ -28,20 +28,20 @@ def debug(msg):
         print("DEBUG: {}".format(msg))
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=None, blacklist=None, whitelist=None, timeout=10, uid=None, gid=None, file_blacklist=['.*python.*']):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=None, blacklist=None, whitelist=None, timeout=10, uid=None, gid=None, file_blacklist=None):
         self.title = title
         self.prompt = prompt
-        self.cur_prompt = '[~] '+prompt
+        self.cur_prompt = '[~] {}'.format(prompt)
         self.history = []
         self.banner = banner
         self.flag = flag
-        self.binaries = binaries
-        self.cmd_whitelist = whitelist
-        self.cmd_blacklist = blacklist
+        self.binaries = binaries if binaries is not None else []
+        self.cmd_whitelist = whitelist if blacklist is not None else []
+        self.cmd_blacklist = blacklist if blacklist is not None else []
         self.timeout = timeout
         self.uid = uid
         self.gid = gid
-        self.file_blacklist=file_blacklist
+        self.file_blacklist=file_blacklist if file_blacklist is not None else []
 
         self.real_root = None
 
