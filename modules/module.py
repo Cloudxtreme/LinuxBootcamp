@@ -8,6 +8,8 @@ import re
 import sys
 import time
 
+DEBUG = True
+
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
 else:
@@ -20,6 +22,10 @@ except NameError:
 
 from shlex import split as shlexSplit
 from shutil import copyfile, copytree, rmtree
+
+def debug(msg):
+    if DEBUG:
+        print("DEBUG: {}".format(msg))
 
 class Module (object):
     def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=None, blacklist=None, whitelist=None, timeout=10, uid=None, gid=None):
@@ -72,7 +78,7 @@ class Module (object):
                 os.setregid(gid, gid)
                 os.setreuid(uid, uid)
             except Exception as e:
-                pass
+                debug(e)
 
         return set_ids
 
@@ -85,7 +91,7 @@ class Module (object):
     def initialize(self):
         # Clear the screen
         sys.stderr.write("\x1b[2J\x1b[H")
-        
+
         # Print the banner
         print(self.banner)
 
@@ -96,16 +102,76 @@ class Module (object):
         md5_hash = hashlib.md5()
         md5_hash.update("{}{}{}".format(self.title, time.time(), random.randint(0, 429496729)).encode('utf-8'))
         self.root_dir = '/tmp/bootcamp/'+md5_hash.hexdigest()
+        debug("Generated fake root: {}".format(self.root_dir))
 
         # Create the virtual env directory
-        venv_dir = self.root_dir+'/bin'
+        venv_dir = '{}{}'.format(self.root_dir, '/bin')
         if not os.path.exists(venv_dir):
+            debug("Making binary directory {}".format(venv_dir))
             os.makedirs(venv_dir)
 
         # Create home directory
-        home = self.root_dir+self.env['HOME']
+        home = '{}{}'.format(self.root_dir, self.env['HOME'])
         if not os.path.exists(home):
+            debug("Making home directory {}".format(home))
             os.makedirs(home)
+
+        #
+        #  Dependency Management
+        #
+
+        # 64 bit specific
+        if sys.maxsize > 2**32:
+            debug("Attempting to copy 64bit libraries")
+            # /lib64
+            if os.path.exists('/lib64'):
+                lib64 = '{}{}'.format(self.root_dir, '/lib64')
+                if not os.path.exists(lib64):
+                    os.makedirs(lib64)
+
+                for f in os.listdir('/lib64'):
+                    oldpath = os.path.abspath('{}{}'.format('/lib64', f))
+                    newpath = os.path.abspath(os.path.join(self.root_dir, os.path.join('/lib64/', f)))
+                    debug('cp -rf {} {}'.format(oldpath, newpath))
+                    os.system('cp -rf {} {}'.format(oldpath, newpath))
+
+
+            # /usr/lib64
+            if os.path.exists('/usr/lib64'):
+                usrlib64 = os.path.join(self.root_dir, '/usr/lib64')
+                if not os.path.exists(usrlib64):
+                    os.makedirs(usrlib64)
+
+                for f in os.listdir('/usr/lib64'):
+                    oldpath = os.path.abspath(os.path.join('/usr/lib64', f))
+                    newpath = os.path.abspath(os.path.join(self.root_dir, os.path.join('/usr/lib64/', f)))
+                    debug('cp -rf {} {}'.format(oldpath, newpath))
+                    os.system('cp -rf {} {}'.format(oldpath, newpath))
+
+        debug("Copying 32bit libaries")
+        # /lib
+        if os.path.exists('/lib'):
+            lib = os.path.join(self.root_dir, '/lib')
+            if not os.path.exists(lib):
+                os.makedirs(lib)
+
+            for f in os.listdir('/lib'):
+                oldpath = os.path.abspath(os.path.join('/lib', f))
+                newpath = os.path.abspath('{}{}'.format(self.root_dir, os.path.join('/lib/', f)))
+                debug('cp -rf {} {}'.format(oldpath, newpath))
+                os.system('cp -rf {} {}'.format(oldpath, newpath))
+
+        # /usr/lib
+        if os.path.exists('/usr/lib'):
+            usrlib = '{}{}'.format(self.root_dir, '/usr/lib')
+            if not os.path.exists(usrlib):
+                os.makedirs(usrlib)
+
+            for f in os.listdir('/usr/lib'):
+                oldpath = os.path.abspath(os.path.join('/usr/lib', f))
+                newpath = os.path.abspath('{}{}'.format(self.root_dir, os.path.join('/usr/lib/', f)))
+                debug('cp -rf {} {}'.format(oldpath, newpath))
+                os.system('cp -rf {} {}'.format(oldpath, newpath))
 
         # Copy sh
         if '/bin/sh' not in self.binaries:
@@ -115,30 +181,9 @@ class Module (object):
         if '/bin/bash' not in self.binaries:
             self.binaries.append('/bin/bash')
 
-
-
-        # Copy files in /usr/lib(64) check for 64bit
-        if sys.maxsize > 2**32:
-            # Create /usr/lib
-            lib64 = os.path.join(self.root_dir, '/lib64')
-            if not os.path.exists(lib64):
-                os.makedirs(lib64)
-            if not os.path.exists(self.root_dir+'/usr/lib64'):
-                os.makedirs(self.root_dir+'/usr/lib64')
-            for f in os.listdir('/usr/lib64'):
-                newpath = os.path.abspath(self.root_dir+'/usr/lib64/'+f)
-                os.system('cp -rf /usr/lib64/'+f+' '+newpath)            
-
-        # Create /usr/lib
-        if not os.path.exists(self.root_dir+'/usr/lib'):
-            os.makedirs(self.root_dir+'/usr/lib')
-        for f in os.listdir('/usr/lib'):
-            newpath = os.path.abspath(self.root_dir+'/usr/lib/'+f)
-            os.system('cp -rf /usr/lib/'+f+' '+newpath)
-
         # Copy binaries (and copy dependencies) into environment
         for binary in self.binaries:
-            print("Copying file/directory {}".format(binary))
+            debug("Copying file/directory {}".format(binary))
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
             os.chmod(new_bin, 0555)
@@ -192,7 +237,7 @@ class Module (object):
             rmtree(self.root_dir)
         except Exception as e:
             # Couldn't cleanup properly, still exit though.
-            pass
+            debug(e)
         if exit:
             sys.exit('Exiting Bootcamp...')
 
@@ -320,5 +365,5 @@ class Module (object):
                     break
 
             except Exception as e:
-                print(e)
+                debug(e)
                 print("Error: Could not execute command")

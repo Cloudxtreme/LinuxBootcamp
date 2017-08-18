@@ -1,6 +1,6 @@
 """
 This is the main entry point for bootcamp.
-It will display a list of modules, and 
+It will display a list of modules, and
 allow a user to choose what module to play.
 
 Once a module is completed, the user will be
@@ -19,9 +19,8 @@ def prompt(mods):
     print("\nWelcome to the bootcamp. Select a module.\n")
 
     for idx, mod in enumerate(mods):
-        mods[idx] = mods[idx].create()
         print("\t{}\t{}".format(idx, mods[idx].title))
-    
+
     try:
         mod = int(input("\n\nModule: "))
         if mod < len(mods) and mod >= 0:
@@ -38,14 +37,14 @@ def main():
     for name in dir(modules):
         try:
             m = getattr(modules, name)
-            if name != 'module' and isinstance(m, __builtins__.__class__):
-                mods.append(m)
+            if name != 'module' and isinstance(m, __builtins__.__class__) and hasattr(m, 'create'):
+                mods.append(m.create())
         except Exception as e:
             print(e)
-    
+
     while True:
         prompt(mods)
-    
+
 
 
 if __name__ == '__main__':
