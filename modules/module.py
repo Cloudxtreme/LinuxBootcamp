@@ -28,7 +28,7 @@ def debug(msg):
         print("DEBUG: {}".format(msg))
 
 class Module (object):
-    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=None, blacklist=None, whitelist=None, timeout=10, uid=None, gid=None):
+    def __init__(self, title, prompt='Bootcamp > ', banner='Welcome to the Linux Bootcamp.\nInitializing your environment...', flag=None, binaries=None, blacklist=None, whitelist=None, timeout=10, uid=None, gid=None, file_blacklist=['.*python.*']):
         self.title = title
         self.prompt = prompt
         self.cur_prompt = '[~] '+prompt
@@ -41,6 +41,7 @@ class Module (object):
         self.timeout = timeout
         self.uid = uid
         self.gid = gid
+        self.file_blacklist=file_blacklist
 
         self.real_root = None
 
@@ -82,6 +83,17 @@ class Module (object):
 
         return set_ids
 
+    """
+    This function compares a file name to a regex to see if it should be allowed into the environment.
+    """
+    def _blacklist_match(self, filename):
+        for exp in self.file_blacklist:
+            r = re.compile(exp)
+            matches = r.findall(filename)
+            if len(matches) > 0:
+                debug("File blacklisted: {}".format(filename))
+                return True
+        return False
 
     """
     Initialize the environment for this module.
@@ -130,6 +142,8 @@ class Module (object):
                     os.makedirs(lib64)
 
                 for f in os.listdir('/lib64'):
+                    if self._blacklist_match(f):
+                        continue
                     oldpath = os.path.abspath('{}{}'.format('/lib64', f))
                     newpath = os.path.abspath(os.path.join(self.root_dir, os.path.join('/lib64/', f)))
                     debug('cp -rf {} {}'.format(oldpath, newpath))
@@ -143,6 +157,8 @@ class Module (object):
                     os.makedirs(usrlib64)
 
                 for f in os.listdir('/usr/lib64'):
+                    if self._blacklist_match(f):
+                        continue
                     oldpath = os.path.abspath(os.path.join('/usr/lib64', f))
                     newpath = os.path.abspath(os.path.join(self.root_dir, os.path.join('/usr/lib64/', f)))
                     debug('cp -rf {} {}'.format(oldpath, newpath))
@@ -156,6 +172,8 @@ class Module (object):
                 os.makedirs(lib)
 
             for f in os.listdir('/lib'):
+                if self._blacklist_match(f):
+                    continue
                 oldpath = os.path.abspath(os.path.join('/lib', f))
                 newpath = os.path.abspath('{}{}'.format(self.root_dir, os.path.join('/lib/', f)))
                 debug('cp -rf {} {}'.format(oldpath, newpath))
@@ -168,6 +186,8 @@ class Module (object):
                 os.makedirs(usrlib)
 
             for f in os.listdir('/usr/lib'):
+                if self._blacklist_match(f):
+                    continue
                 oldpath = os.path.abspath(os.path.join('/usr/lib', f))
                 newpath = os.path.abspath('{}{}'.format(self.root_dir, os.path.join('/usr/lib/', f)))
                 debug('cp -rf {} {}'.format(oldpath, newpath))
