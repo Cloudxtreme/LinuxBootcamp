@@ -8,7 +8,6 @@ reprompted with the module selection list.
 """
 #from modules import Sample_Module
 import modules
-import copy
 
 try:
     input = raw_input
