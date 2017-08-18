@@ -25,7 +25,7 @@ def prompt(mods):
     try:
         mod = int(input("\n\nModule: "))
         if mod < len(mods) and mod >= 0:
-            m = copy.deepcopy(mods[mod])
+            m = mods[mod].create()
             m.initialize()
             m.start()
     except Exception as e:
@@ -39,7 +39,7 @@ def main():
         if name.startswith('_'):
             continue
         try:
-            m = getattr(modules, name).create() 
+            m = getattr(modules, name)
             mods.append(m)
         except Exception as e:
             print(e)
