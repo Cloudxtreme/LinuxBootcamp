@@ -23,6 +23,10 @@ except NameError:
 from shlex import split as shlexSplit
 from shutil import copyfile, copytree, rmtree
 
+DEFAULT_FILE_BLACKLIST = [
+    '.*libreoffice.*',
+]
+
 def debug(msg):
     if DEBUG:
         print("DEBUG: {}".format(msg))
@@ -41,7 +45,7 @@ class Module (object):
         self.timeout = timeout
         self.uid = uid
         self.gid = gid
-        self.file_blacklist=file_blacklist if file_blacklist is not None else []
+        self.file_blacklist=file_blacklist if file_blacklist is not None else DEFAULT_FILE_BLACKLIST
 
         self.real_root = None
 
@@ -60,6 +64,26 @@ class Module (object):
 
         self.check_err = "That's not quite right. Please try again.\n"
 
+    """
+    This function copies potential dependencies into the virtual environment.
+    """
+    def _copy_libraries(self, directory):
+        for root, directories, files in os.walk(directory):
+            for direct in directories:
+                dirpath = os.path.join(root, direct)
+                debug('mkdir {}'.format('{}{}'.format(self.root_dir, dirpath)))
+                os.makedirs('{}{}'.format(self.root_dir, dirpath))
+
+            for file in files:
+                pathtofile = os.path.join(root, file)
+                r = re.compile('.*\.so[\.0-9]*')
+                matches = r.findall(pathtofile)
+                if len(matches) < 1:
+                    #debug("File blacklisted: {}".format(pathtofile))
+                    continue
+                if not self._blacklist_match(pathtofile):
+                    debug('!!cp -f {} {}'.format(pathtofile, '{}{}'.format(self.root_dir, pathtofile)))
+                    os.system('cp -f {} {}'.format(pathtofile, '{}{}'.format(self.root_dir, pathtofile)))
     """
     This function can be used by subprocess to execute commands as a given uid and gid.
     """
@@ -136,71 +160,6 @@ class Module (object):
             debug("Making home directory {}".format(home))
             os.makedirs(home)
 
-        #
-        #  Dependency Management
-        #
-
-        # 64 bit specific
-        if sys.maxsize > 2**32:
-            debug("Attempting to copy 64bit libraries")
-            # /lib64
-            if os.path.exists('/lib64'):
-                lib64 = '{}{}'.format(self.root_dir, '/lib64')
-                if not os.path.exists(lib64):
-                    os.makedirs(lib64)
-
-                for f in os.listdir('/lib64'):
-                    if self._blacklist_match(f):
-                        continue
-                    oldpath = os.path.abspath('{}{}'.format('/lib64', f))
-                    newpath = os.path.abspath(os.path.join(self.root_dir, os.path.join('/lib64/', f)))
-                    debug('cp -rf {} {}'.format(oldpath, newpath))
-                    os.system('cp -rf {} {}'.format(oldpath, newpath))
-
-
-            # /usr/lib64
-            if os.path.exists('/usr/lib64'):
-                usrlib64 = os.path.join(self.root_dir, '/usr/lib64')
-                if not os.path.exists(usrlib64):
-                    os.makedirs(usrlib64)
-
-                for f in os.listdir('/usr/lib64'):
-                    if self._blacklist_match(f):
-                        continue
-                    oldpath = os.path.abspath(os.path.join('/usr/lib64', f))
-                    newpath = os.path.abspath(os.path.join(self.root_dir, os.path.join('/usr/lib64/', f)))
-                    debug('cp -rf {} {}'.format(oldpath, newpath))
-                    os.system('cp -rf {} {}'.format(oldpath, newpath))
-
-        debug("Copying 32bit libaries")
-        # /lib
-        if os.path.exists('/lib'):
-            lib = os.path.join(self.root_dir, '/lib')
-            if not os.path.exists(lib):
-                os.makedirs(lib)
-
-            for f in os.listdir('/lib'):
-                if self._blacklist_match(f):
-                    continue
-                oldpath = os.path.abspath(os.path.join('/lib', f))
-                newpath = os.path.abspath('{}{}'.format(self.root_dir, os.path.join('/lib/', f)))
-                debug('cp -rf {} {}'.format(oldpath, newpath))
-                os.system('cp -rf {} {}'.format(oldpath, newpath))
-
-        # /usr/lib
-        if os.path.exists('/usr/lib'):
-            usrlib = '{}{}'.format(self.root_dir, '/usr/lib')
-            if not os.path.exists(usrlib):
-                os.makedirs(usrlib)
-
-            for f in os.listdir('/usr/lib'):
-                if self._blacklist_match(f):
-                    continue
-                oldpath = os.path.abspath(os.path.join('/usr/lib', f))
-                newpath = os.path.abspath('{}{}'.format(self.root_dir, os.path.join('/usr/lib/', f)))
-                debug('cp -rf {} {}'.format(oldpath, newpath))
-                os.system('cp -rf {} {}'.format(oldpath, newpath))
-
         # Copy sh
         if '/bin/sh' not in self.binaries:
             self.binaries.append('/bin/sh')
@@ -209,14 +168,19 @@ class Module (object):
         if '/bin/bash' not in self.binaries:
             self.binaries.append('/bin/bash')
 
+        self._copy_libraries('/usr/lib')
+        self._copy_libraries('/lib')
+        self._copy_libraries('/usr/lib64')
+        self._copy_libraries('/lib64')
+
         # Copy binaries (and copy dependencies) into environment
         for binary in self.binaries:
             debug("Copying file/directory {}".format(binary))
             new_bin = self.root_dir+'/bin/'+os.path.basename(binary)
             copyfile(binary, new_bin)
             os.chmod(new_bin, 0555)
-            debug("ldd {} | egrep '(.dylib|.so)' | awk '{{ print $1 }}' | xargs -I@ bash -c 'sudo cp @ {}@'".format(binary, self.root_dir))
-            os.system("ldd {} | egrep '(.dylib|.so)' | awk '{{ print $1 }}' | xargs -I@ bash -c 'sudo cp @ {}@'".format(binary, self.root_dir))
+            #debug("ldd {} | egrep '(.dylib|.so)' | awk '{{ print $1 }}' | xargs -I@ bash -c 'sudo cp @ {}@'".format(binary, self.root_dir))
+            #os.system("ldd {} | egrep '(.dylib|.so)' | awk '{{ print $1 }}' | xargs -I@ bash -c 'sudo cp @ {}@'".format(binary, self.root_dir))
 
         # Chroot into the virtual environment (This requires root access)
         os.chdir(self.root_dir)
