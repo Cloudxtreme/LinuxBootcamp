@@ -66,10 +66,10 @@ class Basic_Commands(Module):
             10,
 
             # UID to execute commands with
-            0,
+            1001,
 
             # GID to execute commands with
-            0)
+            1001)
     
     """
     This function is called to start the module.
@@ -129,9 +129,11 @@ class Basic_Commands(Module):
                 return ''       
         elif self.stage == 3:
             if self.check('ls -al', program_input):
-                pass
-            else:
+                self.stage = 4
+	    else:
                 return ''
+	else:
+	    pass
         program_output = self.safe_exec(program_input)
 
         print(program_output)

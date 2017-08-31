@@ -8,7 +8,7 @@ import re
 import sys
 import time
 
-DEBUG = True
+DEBUG = False
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
@@ -83,7 +83,11 @@ class Module (object):
                     continue
                 if not self._blacklist_match(pathtofile):
                     debug('!!cp -f {} {}'.format(pathtofile, '{}{}'.format(self.root_dir, pathtofile)))
-                    os.system('cp -f {} {}'.format(pathtofile, '{}{}'.format(self.root_dir, pathtofile)))
+                    try:
+			os.system('cp -f {} {} > /dev/null 2>&1'.format(pathtofile, '{}{}'.format(self.root_dir, pathtofile)))
+			#copyfile(pathtofile, os.path.join(self.root_dir, pathtofile.lstrip('/')))
+		    except Exception as e:
+			debug(e)
     """
     This function can be used by subprocess to execute commands as a given uid and gid.
     """
@@ -100,8 +104,10 @@ class Module (object):
         def set_ids():
             # Configure UID and GID
             try:
-                os.setregid(gid, gid)
-                os.setreuid(uid, uid)
+                
+		os.setregid(gid, gid)
+                os.setgroups([gid])
+		os.setreuid(uid, uid)
             except Exception as e:
                 debug(e)
 
@@ -275,8 +281,6 @@ class Module (object):
     Execute a command within the virtual environment.
     """
     def safe_exec(self, program_input):
-        print("Echoing hi")
-        os.system("echo hi")
         # Simulate working directory
         if program_input.startswith('cd'):
             args = shlexSplit(program_input)
